@@ -1,0 +1,7 @@
+*.swp
+*.pyc
+__pycache__
+.data
+data
+output
+wmt32k_data

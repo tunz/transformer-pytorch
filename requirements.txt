@@ -1,0 +1,4 @@
+tensorboardX
+pytorch
+torchtext
+tqdm
