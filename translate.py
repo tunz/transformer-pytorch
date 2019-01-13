@@ -2,6 +2,7 @@ import argparse
 import time
 
 import torch
+import torch.nn.functional as F
 
 from utils import utils
 
@@ -47,6 +48,7 @@ def main():
     parser.add_argument('--model_dir', type=str, required=True)
     parser.add_argument('--max_length', type=int, default=100)
     parser.add_argument('--beam_size', type=int, default=4)
+    parser.add_argument('--alpha', type=float, default=0.6)
     parser.add_argument('--no_cuda', action='store_true')
     args = parser.parse_args()
 
@@ -92,12 +94,15 @@ def main():
             pred = pred[:, idx].squeeze(1)
             vocab_size = pred.size(1)
 
-            # TODO: length penalty
+            pred = F.log_softmax(pred, dim=1)
             if idx == 0:
                 scores = pred[0]
             else:
                 scores = scores_history[-1].unsqueeze(1) + pred
+            length_penalty = pow(((5. + idx + 1.) / 6.), args.alpha)
+            scores = scores / length_penalty
             scores = scores.view(-1)
+
             best_scores, best_indices = scores.topk(beam_size, 0)
             scores_history.append(best_scores)
             indices_history.append(best_indices)
