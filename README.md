@@ -28,5 +28,5 @@ $ python train.py --problem wmt32k --output_dir ./output --data_dir ./wmt32k_dat
 
 2. You can translate a single sentence with the trained model.
 ```
-$ python translate.py --data_dir ./wmt32k_data --model_dir ./output/last/models
+$ python decoder.py --translate --data_dir ./wmt32k_data --model_dir ./output/last/models
 ```

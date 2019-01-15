@@ -24,16 +24,18 @@ def summarize_train(writer, global_step, last_time, model, opt,
                               global_step)
 
     writer.add_scalar('input_stats/batch_size',
-                      inputs.size(0), global_step)
-    writer.add_scalar('input_stats/input_length',
-                      inputs.size(1), global_step)
+                      targets.size(0), global_step)
+
+    if inputs is not None:
+        writer.add_scalar('input_stats/input_length',
+                          inputs.size(1), global_step)
+        i_nonpad = (inputs != opt.src_pad_idx).view(-1).type(torch.float32)
+        writer.add_scalar('input_stats/inputs_nonpadding_frac',
+                          i_nonpad.mean(), global_step)
+
     writer.add_scalar('input_stats/target_length',
                       targets.size(1), global_step)
-
-    i_nonpad = (inputs != opt.src_pad_idx).view(-1).type(torch.float32)
     t_nonpad = (targets != opt.trg_pad_idx).view(-1).type(torch.float32)
-    writer.add_scalar('input_stats/inputs_nonpadding_frac',
-                      i_nonpad.mean(), global_step)
     writer.add_scalar('input_stats/target_nonpadding_frac',
                       t_nonpad.mean(), global_step)
 
@@ -57,9 +59,12 @@ def train(train_data, model, opt, global_step, optimizer, t_vocab_size,
     last_time = time.time()
     pbar = tqdm(total=len(train_data.dataset), ascii=True)
     for batch in train_data:
-        inputs = batch.src
+        inputs, i_mask = None, None
+        if opt.has_inputs:
+            inputs = batch.src
+            i_mask = utils.create_pad_mask(inputs, opt.src_pad_idx)
+
         targets = batch.trg
-        i_mask = utils.create_pad_mask(inputs, opt.src_pad_idx)
         t_mask = utils.create_pad_mask(targets, opt.trg_pad_idx)
         t_self_mask = utils.create_trg_self_mask(targets)
 
@@ -82,7 +87,7 @@ def train(train_data, model, opt, global_step, optimizer, t_vocab_size,
         pbar.set_description('[Loss: {:.4f}]'.format(loss.item()))
 
         global_step += 1
-        pbar.update(inputs.size(0))
+        pbar.update(targets.size(0))
 
     pbar.close()
     train_data.reload_examples()
@@ -95,9 +100,11 @@ def validation(validation_data, model, global_step, t_vocab_size, val_writer,
     total_loss = 0.0
     total_cnt = 0
     for batch in validation_data:
-        inputs = batch.src
+        inputs, i_mask = None, None
+        if opt.has_inputs:
+            inputs = batch.src
+            i_mask = utils.create_pad_mask(inputs, opt.src_pad_idx)
         targets = batch.trg
-        i_mask = utils.create_pad_mask(inputs, opt.src_pad_idx)
         t_mask = utils.create_pad_mask(targets, opt.trg_pad_idx)
         t_self_mask = utils.create_trg_self_mask(targets)
 
@@ -145,7 +152,8 @@ def main():
     train_data, validation_data, i_vocab_size, t_vocab_size, opt = \
         problem.prepare(opt.problem, opt.data_dir, opt.max_length,
                         opt.batch_size, device, opt)
-    print("# of vocabs (input):", i_vocab_size)
+    if i_vocab_size is not None:
+        print("# of vocabs (input):", i_vocab_size)
     print("# of vocabs (target):", t_vocab_size)
 
     if os.path.exists(opt.output_dir + '/last/models/last_model.pt'):
@@ -158,7 +166,8 @@ def main():
                             hidden_size=opt.hidden_size,
                             filter_size=opt.filter_size,
                             dropout_rate=opt.dropout,
-                            share_target_embedding=opt.share_target_embedding)
+                            share_target_embedding=opt.share_target_embedding,
+                            has_inputs=opt.has_inputs)
         model = model.to(device=device)
         global_step = 0
 

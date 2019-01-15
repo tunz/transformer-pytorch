@@ -1,5 +1,8 @@
+import pickle
+
 import torch
 from torchtext.data import Iterator
+from tqdm import tqdm
 
 
 class BucketByLengthIterator(Iterator):
@@ -70,3 +73,19 @@ class BucketByLengthIterator(Iterator):
         divisors = [i for i in range(1, window_size + 1)
                     if window_size % i == 0]
         return [max([d for d in divisors if d <= bs]) for bs in batch_sizes]
+
+
+def pickles_to_torch(data_paths):
+    print("Refining pickle data...")
+    for data_path in tqdm(data_paths, ascii=True):
+        examples = []
+        with open(data_path, 'rb') as f:
+            while True:
+                try:
+                    example = pickle.load(f)
+                except EOFError:
+                    break
+                examples.append(example)
+
+        with open(data_path, 'wb') as f:
+            torch.save(examples, f)

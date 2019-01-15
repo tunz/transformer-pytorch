@@ -142,10 +142,12 @@ class DecoderLayer(nn.Module):
         y = self.self_attention_dropout(y)
         x = x + y
 
-        y = self.enc_dec_attention_norm(x)
-        y = self.enc_dec_attention(y, enc_output, enc_output, i_mask, cache)
-        y = self.enc_dec_attention_dropout(y)
-        x = x + y
+        if enc_output is not None:
+            y = self.enc_dec_attention_norm(x)
+            y = self.enc_dec_attention(y, enc_output, enc_output, i_mask,
+                                       cache)
+            y = self.enc_dec_attention_dropout(y)
+            x = x + y
 
         y = self.ffn_norm(x)
         y = self.ffn(y)
@@ -200,31 +202,34 @@ class Transformer(nn.Module):
                  hidden_size=512,
                  filter_size=2048,
                  dropout_rate=0.1,
-                 share_target_embedding=True):
+                 share_target_embedding=True,
+                 has_inputs=True):
         super(Transformer, self).__init__()
 
         self.hidden_size = hidden_size
         self.emb_scale = hidden_size ** 0.5
+        self.has_inputs = has_inputs
+
         self.t_vocab_embedding = nn.Embedding(t_vocab_size, hidden_size)
-        if not share_target_embedding:
-            self.i_vocab_embedding = nn.Embedding(i_vocab_size, hidden_size)
-        else:
-            self.i_vocab_embedding = self.t_vocab_embedding
-
-        self.i_emb_dropout = nn.Dropout(dropout_rate)
+        nn.init.normal_(self.t_vocab_embedding.weight, mean=0,
+                        std=hidden_size**-0.5)
         self.t_emb_dropout = nn.Dropout(dropout_rate)
-
-        self.encoder = Encoder(hidden_size, filter_size,
-                               dropout_rate, n_layers)
         self.decoder = Decoder(hidden_size, filter_size,
                                dropout_rate, n_layers)
 
-        # Initialize embeddings
-        if not share_target_embedding:
-            nn.init.normal_(self.i_vocab_embedding.weight, mean=0,
-                            std=hidden_size**-0.5)
-        nn.init.normal_(self.t_vocab_embedding.weight, mean=0,
-                        std=hidden_size**-0.5)
+        if has_inputs:
+            if not share_target_embedding:
+                self.i_vocab_embedding = nn.Embedding(i_vocab_size,
+                                                      hidden_size)
+                nn.init.normal_(self.i_vocab_embedding.weight, mean=0,
+                                std=hidden_size**-0.5)
+            else:
+                self.i_vocab_embedding = self.t_vocab_embedding
+
+            self.i_emb_dropout = nn.Dropout(dropout_rate)
+
+            self.encoder = Encoder(hidden_size, filter_size,
+                                   dropout_rate, n_layers)
 
         # For positional encoding
         num_timescales = self.hidden_size//2
@@ -239,7 +244,7 @@ class Transformer(nn.Module):
         self.register_buffer('inv_timescales', inv_timescales)
 
     def forward(self, inputs, targets, i_mask, t_self_mask, t_mask):
-        enc_output = self.encode(inputs, i_mask)
+        enc_output = self.encode(inputs, i_mask) if self.has_inputs else None
         return self.decode(targets, enc_output, i_mask, t_self_mask, t_mask)
 
     def encode(self, inputs, i_mask):

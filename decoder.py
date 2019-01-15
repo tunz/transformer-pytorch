@@ -29,7 +29,7 @@ def update_targets(targets, best_indices, idx, vocab_size):
     return new_batch
 
 
-def get_translated_sentence(indices_history, trg_data, vocab_size):
+def get_result_sentence(indices_history, trg_data, vocab_size):
     result = []
     k = 0
     for best_indices in indices_history[::-1]:
@@ -50,12 +50,14 @@ def main():
     parser.add_argument('--beam_size', type=int, default=4)
     parser.add_argument('--alpha', type=float, default=0.6)
     parser.add_argument('--no_cuda', action='store_true')
+    parser.add_argument('--translate', action='store_true')
     args = parser.parse_args()
 
     beam_size = args.beam_size
 
     # Load fields.
-    src_data = torch.load(args.data_dir + '/source.pt')
+    if args.translate:
+        src_data = torch.load(args.data_dir + '/source.pt')
     trg_data = torch.load(args.data_dir + '/target.pt')
 
     # Load a saved model.
@@ -73,18 +75,29 @@ def main():
 
     eos_idx = trg_data['field'].vocab.stoi[trg_data['field'].eos_token]
 
-    sentence = input('Source? ')
-    start_time = time.time()
+    if args.translate:
+        sentence = input('Source? ')
 
     # Encoding inputs.
-    enc_output, src_mask = encode_inputs(sentence, model, src_data, beam_size,
-                                         device)
+    if args.translate:
+        start_time = time.time()
+        enc_output, src_mask = encode_inputs(sentence, model, src_data,
+                                             beam_size, device)
+        targets = pads
+        start_idx = 0
+    else:
+        enc_output, src_mask = None, None
+        sentence = input('Target? ').split()
+        for idx, _ in enumerate(sentence):
+            sentence[idx] = trg_data['field'].vocab.stoi[sentence[idx]]
+        sentence.append(trg_data['pad_idx'])
+        targets = torch.tensor([sentence], device=device)
+        start_idx = targets.size(1) - 1
+        start_time = time.time()
 
     with torch.no_grad():
-        for idx in range(args.max_length):
-            if idx == 0:
-                targets = pads
-            else:
+        for idx in range(start_idx, args.max_length):
+            if idx > start_idx:
                 targets = torch.cat((targets, pads), dim=1)
             t_self_mask = utils.create_trg_self_mask(targets)
 
@@ -95,7 +108,7 @@ def main():
             vocab_size = pred.size(1)
 
             pred = F.log_softmax(pred, dim=1)
-            if idx == 0:
+            if idx == start_idx:
                 scores = pred[0]
             else:
                 scores = scores_history[-1].unsqueeze(1) + pred
@@ -113,8 +126,8 @@ def main():
 
             targets = update_targets(targets, best_indices, idx, vocab_size)
 
-    result = get_translated_sentence(indices_history, trg_data, vocab_size)
-    print("Translated: {}".format(result))
+    result = get_result_sentence(indices_history, trg_data, vocab_size)
+    print("Result: {}".format(result))
 
     print("Elapsed Time: {:.2f} sec".format(time.time() - start_time))
 

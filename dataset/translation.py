@@ -28,22 +28,6 @@ def tokenize_en(text):
     return [tok.text for tok in spacy_en.tokenizer(url.sub('@URL@', text))]
 
 
-def refine_examples(data_paths):
-    print("Refining pickle data...")
-    for data_path in tqdm(data_paths, ascii=True):
-        examples = []
-        with open(data_path, 'rb') as f:
-            while True:
-                try:
-                    example = pickle.load(f)
-                except EOFError:
-                    break
-                examples.append(example)
-
-        with open(data_path, 'wb') as f:
-            torch.save(examples, f)
-
-
 def read_examples(paths, exts, fields, data_dir, mode, filter_pred, num_shard):
     data_path_fmt = data_dir + '/examples-' + mode + '-{}.pt'
     data_paths = [data_path_fmt.format(i) for i in range(num_shard)]
@@ -74,7 +58,7 @@ def read_examples(paths, exts, fields, data_dir, mode, filter_pred, num_shard):
         writer.close()
 
     # Reload pickled objects, and save them again as a list.
-    refine_examples(data_paths)
+    common.pickles_to_torch(data_paths)
 
     examples = torch.load(data_paths[0])
     return examples, data_paths
