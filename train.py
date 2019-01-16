@@ -130,6 +130,7 @@ def main():
     parser.add_argument('--train_step', type=int, default=200)
     parser.add_argument('--batch_size', type=int, default=4096)
     parser.add_argument('--max_length', type=int, default=100)
+    parser.add_argument('--n_layers', type=int, default=6)
     parser.add_argument('--hidden_size', type=int, default=512)
     parser.add_argument('--filter_size', type=int, default=2048)
     parser.add_argument('--warmup', type=int, default=16000)
@@ -163,6 +164,7 @@ def main():
                                                    is_eval=False)
     else:
         model = Transformer(i_vocab_size, t_vocab_size,
+                            n_layers=opt.n_layers,
                             hidden_size=opt.hidden_size,
                             filter_size=opt.filter_size,
                             dropout_rate=opt.dropout,
