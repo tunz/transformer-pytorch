@@ -56,11 +56,15 @@ def create_pad_mask(t, pad):
     return mask
 
 
-def create_trg_self_mask(targets):
+def create_trg_self_mask(targets, parallel=False):
     # Prevent leftward information flow in self-attention.
     target_len = targets.size()[1]
     ones = torch.ones(target_len, target_len, dtype=torch.uint8,
                       device=targets.device)
     t_self_mask = torch.triu(ones, diagonal=1).unsqueeze(0)
+    if parallel:
+        # We need to create a minibatch-size self attention mask so that we can
+        # divide and parallelize the model forward by nn.DataParallel.
+        t_self_mask = t_self_mask.repeat(targets.size()[0], 1, 1)
 
     return t_self_mask
