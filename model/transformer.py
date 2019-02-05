@@ -42,9 +42,9 @@ class MultiHeadAttention(nn.Module):
         self.att_size = att_size = hidden_size // head_size
         self.scale = att_size ** -0.5
 
-        self.linear_q = nn.Linear(hidden_size, head_size*att_size, bias=False)
-        self.linear_k = nn.Linear(hidden_size, head_size*att_size, bias=False)
-        self.linear_v = nn.Linear(hidden_size, head_size*att_size, bias=False)
+        self.linear_q = nn.Linear(hidden_size, head_size * att_size, bias=False)
+        self.linear_k = nn.Linear(hidden_size, head_size * att_size, bias=False)
+        self.linear_v = nn.Linear(hidden_size, head_size * att_size, bias=False)
         initialize_weight(self.linear_q)
         initialize_weight(self.linear_k)
         initialize_weight(self.linear_v)
@@ -232,15 +232,15 @@ class Transformer(nn.Module):
                                    dropout_rate, n_layers)
 
         # For positional encoding
-        num_timescales = self.hidden_size//2
+        num_timescales = self.hidden_size // 2
         max_timescale = 10000.0
         min_timescale = 1.0
         log_timescale_increment = (
             math.log(float(max_timescale) / float(min_timescale)) /
             max(num_timescales - 1, 1))
         inv_timescales = min_timescale * torch.exp(
-            torch.arange(num_timescales, dtype=torch.float32)
-            * -log_timescale_increment)
+            torch.arange(num_timescales, dtype=torch.float32) *
+            -log_timescale_increment)
         self.register_buffer('inv_timescales', inv_timescales)
 
     def forward(self, inputs, targets, i_mask, t_self_mask, t_mask):
