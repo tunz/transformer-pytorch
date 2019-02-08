@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils import utils
+
 # pylint: disable=arguments-differ
 
 
@@ -203,12 +205,17 @@ class Transformer(nn.Module):
                  filter_size=2048,
                  dropout_rate=0.1,
                  share_target_embedding=True,
-                 has_inputs=True):
+                 has_inputs=True,
+                 src_pad_idx=None,
+                 trg_pad_idx=None,
+                 max_seq_len=256):
         super(Transformer, self).__init__()
 
         self.hidden_size = hidden_size
         self.emb_scale = hidden_size ** 0.5
         self.has_inputs = has_inputs
+        self.src_pad_idx = src_pad_idx
+        self.trg_pad_idx = trg_pad_idx
 
         self.t_vocab_embedding = nn.Embedding(t_vocab_size, hidden_size)
         nn.init.normal_(self.t_vocab_embedding.weight, mean=0,
@@ -243,8 +250,16 @@ class Transformer(nn.Module):
             -log_timescale_increment)
         self.register_buffer('inv_timescales', inv_timescales)
 
-    def forward(self, inputs, targets, i_mask, t_self_mask, t_mask):
-        enc_output = self.encode(inputs, i_mask) if self.has_inputs else None
+    def forward(self, inputs, targets):
+        enc_output, i_mask = None, None
+        if self.has_inputs:
+            i_mask = utils.create_pad_mask(inputs, self.src_pad_idx)
+            enc_output = self.encode(inputs, i_mask)
+
+        t_mask = utils.create_pad_mask(targets, self.trg_pad_idx)
+        target_size = targets.size()[1]
+        t_self_mask = utils.create_trg_self_mask(target_size,
+                                                 device=targets.device)
         return self.decode(targets, enc_output, i_mask, t_self_mask, t_mask)
 
     def encode(self, inputs, i_mask):

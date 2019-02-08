@@ -99,7 +99,8 @@ def main():
         for idx in range(start_idx, args.max_length):
             if idx > start_idx:
                 targets = torch.cat((targets, pads), dim=1)
-            t_self_mask = utils.create_trg_self_mask(targets)
+            t_self_mask = utils.create_trg_self_mask(targets.size()[1],
+                                                     device=targets.device)
 
             t_mask = utils.create_pad_mask(targets, trg_data['pad_idx'])
             pred = model.decode(targets, enc_output, src_mask,

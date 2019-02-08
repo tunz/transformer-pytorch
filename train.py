@@ -59,16 +59,12 @@ def train(train_data, model, opt, global_step, optimizer, t_vocab_size,
     last_time = time.time()
     pbar = tqdm(total=len(train_data.dataset), ascii=True)
     for batch in train_data:
-        inputs, i_mask = None, None
+        inputs = None
         if opt.has_inputs:
             inputs = batch.src
-            i_mask = utils.create_pad_mask(inputs, opt.src_pad_idx)
 
         targets = batch.trg
-        t_mask = utils.create_pad_mask(targets, opt.trg_pad_idx)
-        t_self_mask = utils.create_trg_self_mask(targets, parallel=opt.parallel)
-
-        pred = model(inputs, targets, i_mask, t_self_mask, t_mask)
+        pred = model(inputs, targets)
 
         pred = pred.view(-1, pred.size(-1))
         ans = targets.view(-1)
@@ -100,16 +96,13 @@ def validation(validation_data, model, global_step, t_vocab_size, val_writer,
     total_loss = 0.0
     total_cnt = 0
     for batch in validation_data:
-        inputs, i_mask = None, None
+        inputs = None
         if opt.has_inputs:
             inputs = batch.src
-            i_mask = utils.create_pad_mask(inputs, opt.src_pad_idx)
         targets = batch.trg
-        t_mask = utils.create_pad_mask(targets, opt.trg_pad_idx)
-        t_self_mask = utils.create_trg_self_mask(targets, parallel=opt.parallel)
 
         with torch.no_grad():
-            pred = model(inputs, targets, i_mask, t_self_mask, t_mask)
+            pred = model(inputs, targets)
 
             pred = pred.view(-1, pred.size(-1))
             ans = targets.view(-1)
@@ -170,7 +163,10 @@ def main():
                             filter_size=opt.filter_size,
                             dropout_rate=opt.dropout,
                             share_target_embedding=opt.share_target_embedding,
-                            has_inputs=opt.has_inputs)
+                            has_inputs=opt.has_inputs,
+                            src_pad_idx=opt.src_pad_idx,
+                            trg_pad_idx=opt.trg_pad_idx,
+                            max_seq_len=opt.max_length)
         model = model.to(device=device)
         global_step = 0
 

@@ -166,6 +166,7 @@ def prepare(max_length, batch_size, device, opt, data_dir):
 
     opt.src_vocab_size = None
     opt.trg_vocab_size = len(trg_field.vocab)
+    opt.src_pad_idx = None
     opt.trg_pad_idx = trg_field.vocab.stoi[pad]
     opt.has_inputs = False
 
