@@ -152,8 +152,7 @@ def prepare(max_length, batch_size, device, opt, data_dir):
     else:
         src_field = data.Field(tokenize=tokenize_de, batch_first=True,
                                pad_token=pad, lower=True, eos_token='<eos>')
-        trg_field = data.Field(tokenize=tokenize_en, is_target=True,
-                               batch_first=True,
+        trg_field = data.Field(tokenize=tokenize_en, batch_first=True,
                                pad_token=pad, lower=True, eos_token='<eos>')
 
         print("Loading data... (this may take a while)")

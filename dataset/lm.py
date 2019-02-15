@@ -137,7 +137,6 @@ def prepare(max_length, batch_size, device, opt, data_dir):
         val = LM1b(examples_val, fields, filter_pred=filter_pred)
     else:
         trg_field = data.Field(tokenize=split_tokenizer, batch_first=True,
-                               is_target=True,
                                pad_token=pad, lower=True, eos_token='<eos>')
 
         print("Loading data... (this may take a while)")
