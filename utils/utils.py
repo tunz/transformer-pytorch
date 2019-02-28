@@ -27,8 +27,8 @@ def get_loss(pred, ans, vocab_size, label_smoothing, pad):
 def get_accuracy(pred, ans, pad):
     pred = pred.max(1)[1]
     n_correct = pred.eq(ans)
-    n_correct = n_correct.masked_select(ans != pad).sum().item()
-    return n_correct / ans.size(0)
+    n_correct = n_correct.masked_select(ans != pad)
+    return n_correct.sum().item() / n_correct.size(0)
 
 
 def save_checkpoint(model, filepath, global_step, is_best):
