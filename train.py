@@ -7,7 +7,6 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from dataset import problem
-from model.transformer import Transformer
 from utils.optimizer import LRScheduler
 from utils import utils
 
@@ -127,9 +126,10 @@ def main():
     parser.add_argument('--hidden_size', type=int, default=512)
     parser.add_argument('--filter_size', type=int, default=2048)
     parser.add_argument('--warmup', type=int, default=16000)
+    parser.add_argument('--val_every', type=int, default=5)
     parser.add_argument('--dropout', type=float, default=0.1)
     parser.add_argument('--label_smoothing', type=float, default=0.1)
-    parser.add_argument('--val_every', type=int, default=5)
+    parser.add_argument('--model', type=str, default='transformer')
     parser.add_argument('--output_dir', type=str, default='./output')
     parser.add_argument('--data_dir', type=str, default='./data')
     parser.add_argument('--no_cuda', action='store_true')
@@ -151,22 +151,28 @@ def main():
         print("# of vocabs (input):", i_vocab_size)
     print("# of vocabs (target):", t_vocab_size)
 
+    if opt.model == 'transformer':
+        from model.transformer import Transformer
+        model_fn = Transformer
+    elif opt.model == 'fast_transformer':
+        from model.fast_transformer import FastTransformer
+        model_fn = FastTransformer
+
     if os.path.exists(opt.output_dir + '/last/models/last_model.pt'):
         print("Load a checkpoint...")
         last_model_path = opt.output_dir + '/last/models'
         model, global_step = utils.load_checkpoint(last_model_path, device,
                                                    is_eval=False)
     else:
-        model = Transformer(i_vocab_size, t_vocab_size,
-                            n_layers=opt.n_layers,
-                            hidden_size=opt.hidden_size,
-                            filter_size=opt.filter_size,
-                            dropout_rate=opt.dropout,
-                            share_target_embedding=opt.share_target_embedding,
-                            has_inputs=opt.has_inputs,
-                            src_pad_idx=opt.src_pad_idx,
-                            trg_pad_idx=opt.trg_pad_idx,
-                            max_seq_len=opt.max_length)
+        model = model_fn(i_vocab_size, t_vocab_size,
+                         n_layers=opt.n_layers,
+                         hidden_size=opt.hidden_size,
+                         filter_size=opt.filter_size,
+                         dropout_rate=opt.dropout,
+                         share_target_embedding=opt.share_target_embedding,
+                         has_inputs=opt.has_inputs,
+                         src_pad_idx=opt.src_pad_idx,
+                         trg_pad_idx=opt.trg_pad_idx)
         model = model.to(device=device)
         global_step = 0
 

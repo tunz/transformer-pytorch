@@ -1,7 +1,16 @@
 *.swp
 *.pyc
 __pycache__
+.eggs
+.mypy_cache
+.pytest_cache
+*.egg-info
+build
+dist
+*.so
+
 .data
 data
 output
-wmt32k_data
+*_data*
+*output*

@@ -3,8 +3,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tcop.masked_softmax import MaskedSoftmax
 
 from utils import utils
+from model.transformer import FeedForwardNetwork
 
 # pylint: disable=arguments-differ
 
@@ -13,26 +15,6 @@ def initialize_weight(x):
     nn.init.xavier_uniform_(x.weight)
     if x.bias is not None:
         nn.init.constant_(x.bias, 0)
-
-
-class FeedForwardNetwork(nn.Module):
-    def __init__(self, hidden_size, filter_size, dropout_rate):
-        super(FeedForwardNetwork, self).__init__()
-
-        self.layer1 = nn.Linear(hidden_size, filter_size)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(dropout_rate)
-        self.layer2 = nn.Linear(filter_size, hidden_size)
-
-        initialize_weight(self.layer1)
-        initialize_weight(self.layer2)
-
-    def forward(self, x):
-        x = self.layer1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.layer2(x)
-        return x
 
 
 class MultiHeadAttention(nn.Module):
@@ -81,10 +63,9 @@ class MultiHeadAttention(nn.Module):
 
         # Scaled Dot-Product Attention.
         # Attention(Q, K, V) = softmax((QK^T)/sqrt(d_k))V
-        q.mul_(self.scale)
         x = torch.matmul(q, k)  # [b, h, q_len, k_len]
-        x.masked_fill_(mask.unsqueeze(1), -1e9)
-        x = torch.softmax(x, dim=3)
+        x = MaskedSoftmax.apply(x, mask, self.scale)
+
         x = self.att_dropout(x)
         x = x.matmul(v)  # [b, h, q_len, attn]
 
@@ -198,7 +179,7 @@ class Decoder(nn.Module):
         return self.last_norm(decoder_output)
 
 
-class Transformer(nn.Module):
+class FastTransformer(nn.Module):
     def __init__(self, i_vocab_size, t_vocab_size,
                  n_layers=6,
                  hidden_size=512,
@@ -208,7 +189,7 @@ class Transformer(nn.Module):
                  has_inputs=True,
                  src_pad_idx=None,
                  trg_pad_idx=None):
-        super(Transformer, self).__init__()
+        super(FastTransformer, self).__init__()
 
         self.hidden_size = hidden_size
         self.emb_scale = hidden_size ** 0.5
@@ -269,6 +250,7 @@ class Transformer(nn.Module):
         input_embedded += self.get_position_encoding(inputs)
         input_embedded = self.i_emb_dropout(input_embedded)
 
+        i_mask = i_mask.size(2) - i_mask.sum(dim=2, dtype=torch.int32)
         return self.encoder(input_embedded, i_mask)
 
     def decode(self, targets, enc_output, i_mask, t_self_mask, t_mask,
@@ -286,6 +268,10 @@ class Transformer(nn.Module):
         target_embedded = self.t_emb_dropout(target_embedded)
 
         # decoder
+        if i_mask is not None:
+            i_mask = i_mask.size(2) - i_mask.sum(dim=2, dtype=torch.int32)
+        t_self_mask = \
+            t_self_mask.size(2) - t_self_mask.sum(dim=2, dtype=torch.int32)
         decoder_output = self.decoder(target_embedded, enc_output, i_mask,
                                       t_self_mask, cache)
         # linear
